@@ -1,0 +1,6 @@
+An arduino and ws2812b project.
+
+
+The potentiometer will control the ratio between red and blue lights.
+
+
