@@ -1,3 +1,6 @@
+#include <Time.h>
+#include <TimeLib.h>
+
 #include <bitswap.h>
 #include <chipsets.h>
 #include <color.h>
@@ -26,22 +29,22 @@
 #include <platforms.h>
 #include <power_mgt.h>
 
-#define DEBUG 0
+#define DEBUG 1
 
-#define NUM_LEDS 50
+# define NUM_LEDS 5
+
 #define DATA_PIN 6
 #define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
 
 #define POT_PIN 1
-#define POT_LOW 333
-#define POT_HIGH 667
 
 // Use floats so we can take ratios
-#define POT_MIN 120.0
-#define POT_MAX 1020.0
+#define POT_MIN 50.0
+#define POT_MAX 950.0
 
 #define INTENSITY 255
+#define GREEN 85
 
 CRGB leds[NUM_LEDS];
 
@@ -50,9 +53,15 @@ void setup() {
   FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
 
   Serial.begin(9600);
+
+  setTime(0);
 }
 
 void loop() {
+  if(sleep()) {
+    return;
+  }
+
   const int pot = analogRead(POT_PIN);
 
   CRGB color = getColor(pot);
@@ -71,11 +80,19 @@ void setLeds(CRGB color) {
 }
 
 CRGB getColor(int rawPot) {
+  Serial.println(rawPot);
   // This drops the 1s digit.
   int roundedPot = 10 * (rawPot / 10);
 
   if (roundedPot < POT_MIN) {
     return CRGB::Black; // Off
+  }
+
+  if (roundedPot > POT_MAX) {
+    #if DEBUG
+    Serial.println("MAX");
+    #endif
+    return CRGB(/* red, green, blue */ INTENSITY, GREEN, INTENSITY);
   }
 
   float pot = roundedPot - POT_MIN;
@@ -91,6 +108,30 @@ CRGB getColor(int rawPot) {
   int blue = bluePercent * INTENSITY;
   int red = redPercent * INTENSITY;
 
-  return CRGB(/* red, green, blue */ red, 0, blue);
+  return CRGB(/* red, green, blue */ red, GREEN, blue);
 }
 
+boolean sleep() {
+  boolean sleeping = false;
+
+  if (hour() >= 16) {
+    // On for 16hrs then turn off for the rest of the day.
+    #if DEBUG
+    Serial.print("Sleeping\n");
+    #endif
+    setLeds(CRGB::Black); // Off
+    FastLED.show();
+    sleeping = true;
+  }
+
+  if (day() >= 2) {
+    // Re-enable lights and reset time.
+    #if DEBUG
+    Serial.print("Waking up.\n");
+    #endif
+    setTime(0);
+    sleeping= false;
+  }
+
+  return sleeping;
+}
